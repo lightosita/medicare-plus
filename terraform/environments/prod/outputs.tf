@@ -3,6 +3,11 @@ output "alb_dns_name" {
   value       = module.compute.alb_dns_name
 }
 
+output "application_url" {
+  description = "Application URL"
+  value       = "https://${module.compute.alb_dns_name}"
+}
+
 output "ecs_cluster_name" {
   description = "ECS cluster name"
   value       = module.compute.ecs_cluster_name
@@ -32,3 +37,14 @@ output "emergency_topic_arn" {
   description = "Emergency SNS topic ARN"
   value       = module.notifications.emergency_topic_arn
 }
+
+output "db_endpoint" {
+  description = "RDS endpoint"
+  value       = module.database.db_endpoint
+}
+
+output "redis_endpoint" {
+  description = "Redis endpoint"
+  value       = module.database.redis_endpoint
+}
+
