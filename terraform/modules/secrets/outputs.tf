@@ -27,3 +27,15 @@ output "app_config_secret_name" {
   description = "Name of the application config secret"
   value       = aws_secretsmanager_secret.app_config.name
 }
+
+output "generated_db_password" {
+  description = "Auto-generated DB password if none was provided"
+  value       = local.db_password
+  sensitive   = true
+}
+
+output "generated_redis_password" {
+  description = "Auto-generated Redis password if none was provided"
+  value       = local.redis_password
+  sensitive   = true
+}

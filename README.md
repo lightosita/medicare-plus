@@ -80,9 +80,7 @@ medicare-plus/
 │       ├── secrets/
 │       └── storage/
 
-## Scenarios Completed
-- Scenario 3: Healthcare Management System — MediCare+
-- Scenario 5: IoT Fleet Management — FleetTrack
+
 
 ## Tech Stack
 - **Cloud:** AWS

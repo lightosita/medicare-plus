@@ -1,0 +1,56 @@
+name: Terraform CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - dev
+  pull_request:
+    branches:
+      - main
+
+env:
+  TF_CLOUD_ORGANIZATION: "your-terraform-cloud-org"
+
+jobs:
+  terraform:
+    name: Terraform Plan & Apply
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_version: 1.6.0
+
+      - name: Set environment based on branch
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "ENV_PATH=terraform/environments/prod" >> $GITHUB_ENV
+          elif [ "${{ github.ref }}" = "refs/heads/staging" ]; then
+            echo "ENV_PATH=terraform/environments/staging" >> $GITHUB_ENV
+          else
+            echo "ENV_PATH=terraform/environments/dev" >> $GITHUB_ENV
+          fi
+
+      - name: Terraform Init
+        working-directory: ${{ env.ENV_PATH }}
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ${{ env.ENV_PATH }}
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: ${{ env.ENV_PATH }}
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        working-directory: ${{ env.ENV_PATH }}
+        run: terraform apply -auto-approve tfplan

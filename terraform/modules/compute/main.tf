@@ -51,11 +51,12 @@ resource "aws_lb_target_group" "app" {
 }
 
 resource "aws_lb_listener" "https" {
+  count             = var.certificate_arn != "" ? 1 : 0
   load_balancer_arn = aws_lb.main.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.certificate_arn
+  certificate_arn   = data.aws_acm_certificate.main.arn
 
   default_action {
     type             = "forward"
@@ -63,18 +64,14 @@ resource "aws_lb_listener" "https" {
   }
 }
 
-resource "aws_lb_listener" "http_redirect" {
+resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
   }
 }
 
@@ -225,7 +222,7 @@ resource "aws_ecs_service" "app" {
     rollback = true
   }
 
-  depends_on = [aws_lb_listener.https]
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
 
   tags = {
     Name        = "${local.name_prefix}-app-service"

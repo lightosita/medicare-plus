@@ -113,6 +113,7 @@ variable "app_max_count" {
 }
 
 variable "certificate_arn" {
-  description = "ACM certificate ARN for HTTPS"
+  description = "ACM certificate ARN for HTTPS — leave empty to skip HTTPS"
   type        = string
+  default     = ""
 }

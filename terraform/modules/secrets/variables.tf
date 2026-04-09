@@ -19,13 +19,13 @@ variable "kms_key_arn" {
 }
 
 variable "db_username" {
-  description = "Master username for RDS PostgreSQL — injected from Terraform Cloud"
+  description = "Master username for RDS — injected from Terraform Cloud"
   type        = string
   sensitive   = true
 }
 
 variable "db_password" {
-  description = "Master password for RDS PostgreSQL — injected from Terraform Cloud"
+  description = "Master password for RDS — injected from Terraform Cloud"
   type        = string
   sensitive   = true
 }
@@ -36,13 +36,13 @@ variable "db_name" {
 }
 
 variable "redis_password" {
-  description = "Auth token for ElastiCache Redis — injected from Terraform Cloud"
+  description = "Redis auth token — injected from Terraform Cloud"
   type        = string
   sensitive   = true
 }
 
 variable "recovery_window_in_days" {
-  description = "Days before a deleted secret is permanently removed"
+  description = "Days before deleted secret is permanently removed"
   type        = number
   default     = 30
 }

@@ -1,6 +1,23 @@
 locals {
-  name_prefix    = "${var.project_name}-${var.environment}"
-  secret_prefix  = "${var.project_name}/${var.environment}"
+  name_prefix   = "${var.project_name}-${var.environment}"
+  secret_prefix = "${var.project_name}/${var.environment}"
+}
+
+resource "random_password" "db" {
+  length           = 32
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}?"
+}
+
+resource "random_password" "redis" {
+  length           = 32
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}?"
+}
+
+locals {
+  db_password    = var.db_password != "" ? var.db_password : random_password.db.result
+  redis_password = var.redis_password != "" ? var.redis_password : random_password.redis.result
 }
 
 resource "aws_secretsmanager_secret" "db_credentials" {
@@ -21,10 +38,11 @@ resource "aws_secretsmanager_secret_version" "db_credentials" {
 
   secret_string = jsonencode({
     username = var.db_username
-    password = var.db_password
+    password = local.db_password
     dbname   = var.db_name
     engine   = "postgres"
     port     = 5432
+    host     = ""
   })
 }
 
@@ -45,14 +63,14 @@ resource "aws_secretsmanager_secret_version" "redis_credentials" {
   secret_id = aws_secretsmanager_secret.redis_credentials.id
 
   secret_string = jsonencode({
-    auth_token = var.redis_password
+    auth_token = local.redis_password
     port       = 6379
   })
 }
 
 resource "aws_secretsmanager_secret" "app_config" {
   name                    = "${local.secret_prefix}/app/config"
-  description             = "Application configuration secrets for ${local.name_prefix}"
+  description             = "Application config for ${local.name_prefix}"
   kms_key_id              = var.kms_key_arn
   recovery_window_in_days = var.recovery_window_in_days
 
@@ -67,28 +85,16 @@ resource "aws_secretsmanager_secret_version" "app_config" {
   secret_id = aws_secretsmanager_secret.app_config.id
 
   secret_string = jsonencode({
-    environment    = var.environment
-    aws_region     = var.aws_region
-    log_level      = var.environment == "prod" ? "WARN" : "DEBUG"
+    environment = var.environment
+    aws_region  = var.aws_region
+    log_level   = var.environment == "prod" ? "WARN" : "DEBUG"
   })
 }
 
-resource "aws_secretsmanager_secret_rotation" "db_credentials" {
-  secret_id           = aws_secretsmanager_secret.db_credentials.id
-  rotation_lambda_arn = aws_lambda_function.rotation.arn
-
-  rotation_rules {
-    automatically_after_days = 30
-  }
-
-  depends_on = [aws_lambda_permission.rotation]
-}
-
-data "aws_iam_policy_document" "rotation_lambda_assume" {
+data "aws_iam_policy_document" "rotation_assume" {
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
-
     principals {
       type        = "Service"
       identifiers = ["lambda.amazonaws.com"]
@@ -96,9 +102,9 @@ data "aws_iam_policy_document" "rotation_lambda_assume" {
   }
 }
 
-resource "aws_iam_role" "rotation_lambda" {
+resource "aws_iam_role" "rotation" {
   name               = "${local.name_prefix}-secret-rotation-role"
-  assume_role_policy = data.aws_iam_policy_document.rotation_lambda_assume.json
+  assume_role_policy = data.aws_iam_policy_document.rotation_assume.json
 
   tags = {
     Name        = "${local.name_prefix}-secret-rotation-role"
@@ -106,13 +112,13 @@ resource "aws_iam_role" "rotation_lambda" {
   }
 }
 
-resource "aws_iam_role_policy_attachment" "rotation_lambda_basic" {
-  role       = aws_iam_role.rotation_lambda.name
+resource "aws_iam_role_policy_attachment" "rotation_basic" {
+  role       = aws_iam_role.rotation.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_policy" "rotation_lambda_secrets" {
-  name        = "${local.name_prefix}-rotation-secrets-policy"
+resource "aws_iam_policy" "rotation" {
+  name        = "${local.name_prefix}-rotation-policy"
   description = "Allows rotation Lambda to manage secret versions"
 
   policy = jsonencode({
@@ -126,9 +132,7 @@ resource "aws_iam_policy" "rotation_lambda_secrets" {
           "secretsmanager:PutSecretValue",
           "secretsmanager:UpdateSecretVersionStage"
         ]
-        Resource = [
-          aws_secretsmanager_secret.db_credentials.arn
-        ]
+        Resource = [aws_secretsmanager_secret.db_credentials.arn]
       },
       {
         Effect = "Allow"
@@ -143,55 +147,55 @@ resource "aws_iam_policy" "rotation_lambda_secrets" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "rotation_lambda_secrets" {
-  role       = aws_iam_role.rotation_lambda.name
-  policy_arn = aws_iam_policy.rotation_lambda_secrets.arn
+resource "aws_iam_role_policy_attachment" "rotation" {
+  role       = aws_iam_role.rotation.name
+  policy_arn = aws_iam_policy.rotation.arn
 }
 
-data "archive_file" "rotation_lambda" {
+data "archive_file" "rotation" {
   type        = "zip"
   output_path = "${path.module}/lambda/rotation.zip"
 
   source {
     content  = <<-EOT
-      import boto3
-      import json
+import boto3
+import json
 
-      def lambda_handler(event, context):
-          arn = event['SecretId']
-          token = event['ClientRequestToken']
-          step = event['Step']
+def lambda_handler(event, context):
+    arn   = event['SecretId']
+    token = event['ClientRequestToken']
+    step  = event['Step']
+    client = boto3.client('secretsmanager')
 
-          client = boto3.client('secretsmanager')
-
-          if step == "createSecret":
-              client.put_secret_value(
-                  SecretId=arn,
-                  ClientRequestToken=token,
-                  SecretString=json.dumps({"rotated": True}),
-                  VersionStages=['AWSPENDING']
-              )
-          elif step == "finishSecret":
-              client.update_secret_version_stage(
-                  SecretId=arn,
-                  VersionStage='AWSCURRENT',
-                  MoveToVersionId=token,
-                  RemoveFromVersionId=client.describe_secret(
-                      SecretId=arn
-                  )['VersionIdsToStages'].get('AWSCURRENT', [None])[0]
-              )
+    if step == "createSecret":
+        client.put_secret_value(
+            SecretId=arn,
+            ClientRequestToken=token,
+            SecretString=json.dumps({"rotated": True}),
+            VersionStages=['AWSPENDING']
+        )
+    elif step == "finishSecret":
+        meta = client.describe_secret(SecretId=arn)
+        current = [v for v, s in meta['VersionIdsToStages'].items()
+                   if 'AWSCURRENT' in s]
+        client.update_secret_version_stage(
+            SecretId=arn,
+            VersionStage='AWSCURRENT',
+            MoveToVersionId=token,
+            RemoveFromVersionId=current[0] if current else None
+        )
     EOT
     filename = "rotation.py"
   }
 }
 
 resource "aws_lambda_function" "rotation" {
-  filename         = data.archive_file.rotation_lambda.output_path
+  filename         = data.archive_file.rotation.output_path
   function_name    = "${local.name_prefix}-secret-rotation"
-  role             = aws_iam_role.rotation_lambda.arn
+  role             = aws_iam_role.rotation.arn
   handler          = "rotation.lambda_handler"
   runtime          = "python3.12"
-  source_code_hash = data.archive_file.rotation_lambda.output_base64sha256
+  source_code_hash = data.archive_file.rotation.output_base64sha256
   timeout          = 30
 
   environment {
@@ -203,14 +207,24 @@ resource "aws_lambda_function" "rotation" {
   tags = {
     Name        = "${local.name_prefix}-secret-rotation"
     Environment = var.environment
-    Purpose     = "secret-rotation"
   }
 }
 
 resource "aws_lambda_permission" "rotation" {
-  statement_id  = "AllowSecretsManagerInvocation"
+  statement_id  = "AllowSecretsManager"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.rotation.function_name
   principal     = "secretsmanager.amazonaws.com"
   source_arn    = aws_secretsmanager_secret.db_credentials.arn
+}
+
+resource "aws_secretsmanager_secret_rotation" "db_credentials" {
+  secret_id           = aws_secretsmanager_secret.db_credentials.id
+  rotation_lambda_arn = aws_lambda_function.rotation.arn
+
+  rotation_rules {
+    automatically_after_days = 30
+  }
+
+  depends_on = [aws_lambda_permission.rotation]
 }

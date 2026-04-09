@@ -6,14 +6,28 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4"
+    }
   }
 
- backend "s3" {
-    bucket       = "light-teleios-s3-medicare-state-221693237976-us-east-1-an"
-    key          = "prod/terraform.tfstate"
-    region       = "us-east-1"
-    encrypt      = true
-    use_lockfile = true
+  data "aws_acm_certificate" "main" {
+  domain      = "babest.online"
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
+
+  backend "s3" {
+    bucket         = "light-teleios-s3-medicare-state-221693237976-us-east-1-an"
+    key            = "prod/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    use_lockfile   = true
   }
 }
 

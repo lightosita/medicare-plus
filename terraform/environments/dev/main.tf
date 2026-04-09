@@ -9,12 +9,12 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "light-teleios-s3-medicare-state-221693237976-us-east-1-an"
-    key            = "dev/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "light-teleios-medicare-tf-locks"
-    encrypt        = true
-  }
+  bucket       = "light-teleios-s3-medicare-state-221693237976-us-east-1-an"
+  key          = "prod/terraform.tfstate"
+  region       = "us-east-1"
+  encrypt      = true
+  use_lockfile = true
+}
 }
 
 provider "aws" {
@@ -28,6 +28,12 @@ provider "aws" {
       Owner       = "teleios-light"
     }
   }
+}
+
+data "aws_acm_certificate" "main" {
+  domain      = "babest.online"
+  statuses    = ["ISSUED"]
+  most_recent = true
 }
 
 data "aws_caller_identity" "current" {}
