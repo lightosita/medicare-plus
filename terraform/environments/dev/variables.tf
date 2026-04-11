@@ -41,17 +41,7 @@ variable "isolated_subnet_cidrs" {
   type        = list(string)
 }
 
-variable "db_username" {
-  description = "RDS master username — injected from Terraform Cloud"
-  type        = string
-  sensitive   = true
-}
 
-variable "db_password" {
-  description = "RDS master password — injected from Terraform Cloud"
-  type        = string
-  sensitive   = true
-}
 
 variable "db_name" {
   description = "Database name"
@@ -59,10 +49,9 @@ variable "db_name" {
   default     = "medicareplus"
 }
 
-variable "redis_password" {
-  description = "Redis auth token — injected from Terraform Cloud"
-  type        = string
-  sensitive   = true
+variable "db_username" {
+  type      = string
+  sensitive = true
 }
 
 variable "db_instance_class" {
@@ -78,7 +67,7 @@ variable "redis_node_type" {
 }
 
 variable "app_image" {
-  description = "Docker image URI for the application"
+  description = "Docker image for the application"
   type        = string
 }
 
@@ -95,25 +84,19 @@ variable "app_memory" {
 }
 
 variable "app_desired_count" {
-  description = "Desired ECS task count"
+  description = "Desired number of ECS tasks"
   type        = number
   default     = 1
 }
 
 variable "app_min_count" {
-  description = "Minimum ECS task count"
+  description = "Minimum number of ECS tasks"
   type        = number
   default     = 1
 }
 
 variable "app_max_count" {
-  description = "Maximum ECS task count"
+  description = "Maximum number of ECS tasks"
   type        = number
   default     = 3
-}
-
-variable "certificate_arn" {
-  description = "ACM certificate ARN for HTTPS — leave empty to skip HTTPS"
-  type        = string
-  default     = ""
 }

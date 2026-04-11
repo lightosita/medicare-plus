@@ -35,10 +35,12 @@ output "emergency_topic_arn" {
 
 output "db_endpoint" {
   description = "RDS endpoint"
-  value       = module.database.db_endpoint
+  value       = module.database.rds_endpoint
+  sensitive   = true
 }
 
 output "redis_endpoint" {
   description = "Redis endpoint"
   value       = module.database.redis_endpoint
+  sensitive   = true
 }
