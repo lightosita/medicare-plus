@@ -4,14 +4,14 @@ on:
   push:
     branches:
       - main
-      - staging
       - dev
   pull_request:
     branches:
       - main
 
 env:
-  TF_CLOUD_ORGANIZATION: "your-terraform-cloud-org"
+  TF_CLOUD_ORGANIZATION: "Teleios"
+  AWS_DEFAULT_REGION: "us-east-1"
 
 jobs:
   terraform:
@@ -28,29 +28,47 @@ jobs:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
           terraform_version: 1.6.0
 
-      - name: Set environment based on branch
+      - name: Set workspace and backend key based on branch
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "ENV_PATH=terraform/environments/prod" >> $GITHUB_ENV
-          elif [ "${{ github.ref }}" = "refs/heads/staging" ]; then
-            echo "ENV_PATH=terraform/environments/staging" >> $GITHUB_ENV
+            echo "TF_WORKSPACE=teleios-light-prod" >> $GITHUB_ENV
+            echo "BACKEND_KEY=prod/terraform.tfstate" >> $GITHUB_ENV
           else
-            echo "ENV_PATH=terraform/environments/dev" >> $GITHUB_ENV
+            echo "TF_WORKSPACE=teleios-light-dev" >> $GITHUB_ENV
+            echo "BACKEND_KEY=dev/terraform.tfstate" >> $GITHUB_ENV
           fi
 
       - name: Terraform Init
-        working-directory: ${{ env.ENV_PATH }}
-        run: terraform init
+        working-directory: terraform
+        run: |
+          terraform init -reconfigure \
+            -backend-config="bucket=light-teleios-s3-medicare-state-221693237976-us-east-1-an" \
+            -backend-config="key=${{ env.BACKEND_KEY }}" \
+            -backend-config="region=us-east-1" \
+            -backend-config="encrypt=true"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Terraform Validate
-        working-directory: ${{ env.ENV_PATH }}
+        working-directory: terraform
         run: terraform validate
 
       - name: Terraform Plan
-        working-directory: ${{ env.ENV_PATH }}
-        run: terraform plan -out=tfplan
+        working-directory: terraform
+        run: terraform plan -var-file="environments/prod/dev.auto.tfvars" -out=tfplan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+          TF_VAR_db_username: ${{ secrets.TF_VAR_DB_USERNAME }}
 
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        working-directory: ${{ env.ENV_PATH }}
+        if: github.event_name == 'push'
+        working-directory: terraform
         run: terraform apply -auto-approve tfplan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+          TF_VAR_db_username: ${{ secrets.TF_VAR_DB_USERNAME }}

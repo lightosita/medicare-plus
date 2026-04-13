@@ -7,7 +7,8 @@ terraform {
       version = "~> 5.0"
     }
   }
-backend "s3" {
+
+  backend "s3" {
     bucket       = "light-teleios-s3-medicare-state-221693237976-us-east-1-an"
     key          = "prod/terraform.tfstate"
     region       = "us-east-1"
@@ -22,7 +23,7 @@ provider "aws" {
   default_tags {
     tags = {
       Project     = "medicare-plus"
-      Environment = "prod"
+      Environment = var.environment
       ManagedBy   = "terraform"
       Owner       = "teleios-cloud-team"
     }
