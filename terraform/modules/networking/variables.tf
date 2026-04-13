@@ -19,17 +19,17 @@ variable "availability_zones" {
 }
 
 variable "public_subnet_cidrs" {
-  description = "CIDR blocks for public subnets (one per AZ) — ALB only"
+  description = "CIDR blocks for public subnets (one per AZ) - ALB only"
   type        = list(string)
 }
 
 variable "private_subnet_cidrs" {
-  description = "CIDR blocks for private subnets (one per AZ) — ECS tasks"
+  description = "CIDR blocks for private subnets (one per AZ) - ECS tasks"
   type        = list(string)
 }
 
 variable "isolated_subnet_cidrs" {
-  description = "CIDR blocks for isolated subnets (one per AZ) — RDS and ElastiCache"
+  description = "CIDR blocks for isolated subnets (one per AZ) - RDS and ElastiCache"
   type        = list(string)
 }
 

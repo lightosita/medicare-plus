@@ -4,7 +4,7 @@ locals {
 
 resource "aws_db_subnet_group" "main" {
   name        = "${local.name_prefix}-db-subnet-group"
-  description = "Subnet group for RDS PostgreSQL — isolated subnets only"
+  description = "Subnet group for RDS PostgreSQL - isolated subnets only"
   subnet_ids  = var.isolated_subnet_ids
 
   tags = {
@@ -38,10 +38,7 @@ resource "aws_db_parameter_group" "main" {
     value = "1000"
   }
 
-  parameter {
-    name  = "ssl"
-    value = "1"
-  }
+  
 
   parameter {
     name         = "rds.force_ssl"
@@ -59,7 +56,7 @@ resource "aws_db_instance" "main" {
   identifier = "${local.name_prefix}-postgres"
 
   engine         = "postgres"
-  engine_version = "15.4"
+  engine_version = "15.7"
   instance_class = var.db_instance_class
 
   db_name  = var.db_name
@@ -107,7 +104,7 @@ resource "aws_db_instance" "main" {
 
 resource "aws_elasticache_subnet_group" "main" {
   name        = "${local.name_prefix}-redis-subnet-group"
-  description = "Subnet group for ElastiCache Redis — isolated subnets only"
+  description = "Subnet group for ElastiCache Redis - isolated subnets only"
   subnet_ids  = var.isolated_subnet_ids
 
   tags = {

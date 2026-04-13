@@ -8,6 +8,7 @@ variable "project_name" {
   type        = string
 }
 
+
 variable "aws_region" {
   description = "AWS region where database resources are deployed"
   type        = string
@@ -39,16 +40,23 @@ variable "kms_rds_key_arn" {
 }
 
 variable "db_username" {
-  description = "Master username for RDS — injected from Terraform Cloud"
+  description = "Master username for RDS - injected from Terraform Cloud"
   type        = string
   sensitive   = true
 }
 
 variable "db_password" {
-  description = "Master password for RDS — injected from Terraform Cloud"
+  description = "RDS master password - passed from SSM"
   type        = string
   sensitive   = true
 }
+
+variable "redis_password" {
+  description = "Redis auth token - passed from SSM"
+  type        = string
+  sensitive   = true
+}
+
 
 variable "db_name" {
   description = "Name of the application database"
@@ -56,20 +64,15 @@ variable "db_name" {
 }
 
 variable "db_instance_class" {
-  description = "RDS instance class — varies per environment"
+  description = "RDS instance class - varies per environment"
   type        = string
 }
 
 variable "redis_node_type" {
-  description = "ElastiCache node type — varies per environment"
+  description = "ElastiCache node type - varies per environment"
   type        = string
 }
 
-variable "redis_password" {
-  description = "Auth token for ElastiCache Redis — injected from Terraform Cloud"
-  type        = string
-  sensitive   = true
-}
 
 variable "backup_retention_period" {
   description = "Days to retain RDS automated backups"
@@ -78,13 +81,13 @@ variable "backup_retention_period" {
 }
 
 variable "multi_az" {
-  description = "Whether to enable Multi-AZ for RDS — always true in prod"
+  description = "Whether to enable Multi-AZ for RDS - always true in prod"
   type        = bool
   default     = true
 }
 
 variable "deletion_protection" {
-  description = "Prevent accidental RDS deletion — always true in prod"
+  description = "Prevent accidental RDS deletion - always true in prod"
   type        = bool
   default     = true
 }

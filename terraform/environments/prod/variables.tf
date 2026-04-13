@@ -41,17 +41,7 @@ variable "isolated_subnet_cidrs" {
   type        = list(string)
 }
 
-variable "db_username" {
-  description = "RDS master username — injected from Terraform Cloud"
-  type        = string
-  sensitive   = true
-}
 
-variable "db_password" {
-  description = "RDS master password — injected from Terraform Cloud"
-  type        = string
-  sensitive   = true
-}
 
 variable "db_name" {
   description = "Database name"
@@ -59,11 +49,11 @@ variable "db_name" {
   default     = "medicareplus"
 }
 
-variable "redis_password" {
-  description = "Redis auth token — injected from Terraform Cloud"
-  type        = string
-  sensitive   = true
+variable "db_username" {
+  type      = string
+  sensitive = true
 }
+
 
 variable "db_instance_class" {
   description = "RDS instance class"

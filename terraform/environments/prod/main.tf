@@ -1,3 +1,5 @@
+# environments/prod/main.tf
+
 terraform {
   required_version = ">= 1.6.0"
 
@@ -16,18 +18,12 @@ terraform {
     }
   }
 
-  data "aws_acm_certificate" "main" {
-  domain      = "babest.online"
-  statuses    = ["ISSUED"]
-  most_recent = true
-}
-
   backend "s3" {
-    bucket         = "light-teleios-s3-medicare-state-221693237976-us-east-1-an"
-    key            = "prod/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    use_lockfile   = true
+    bucket       = "light-teleios-s3-medicare-state-221693237976-us-east-1-an"
+    key          = "prod/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 
@@ -46,13 +42,21 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+data "aws_acm_certificate" "main" {
+  domain      = "babest.online"
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
+
+# ── No SSM data sources. Passwords are generated inside modules. ──
+
 module "kms" {
   source = "../../modules/kms"
 
   environment             = var.environment
   project_name            = var.project_name
   aws_region              = var.aws_region
-  deletion_window_in_days = 30
+  deletion_window_in_days = 30 # Longer window in prod
   enable_key_rotation     = true
 }
 
@@ -67,7 +71,7 @@ module "networking" {
   private_subnet_cidrs  = var.private_subnet_cidrs
   isolated_subnet_cidrs = var.isolated_subnet_cidrs
   enable_nat_gateway    = true
-  single_nat_gateway    = false
+  single_nat_gateway    = false # One NAT GW per AZ in prod
 }
 
 module "iam" {
@@ -82,18 +86,27 @@ module "iam" {
   kms_s3_key_arn   = module.kms.s3_key_arn
 }
 
+# Secrets module runs before database — it generates the passwords
+# that the database module needs for its first apply.
 module "secrets" {
   source = "../../modules/secrets"
 
-  environment             = var.environment
-  project_name            = var.project_name
-  aws_region              = var.aws_region
-  kms_key_arn             = module.kms.main_key_arn
-  db_username             = var.db_username
-  db_password             = var.db_password
-  db_name                 = var.db_name
-  redis_password          = var.redis_password
-  recovery_window_in_days = 30
+  environment              = var.environment
+  project_name             = var.project_name
+  aws_region               = var.aws_region
+  kms_key_arn              = module.kms.main_key_arn
+  db_username              = var.db_username
+  db_name                  = var.db_name
+  recovery_window_in_days  = 30
+  private_subnet_ids       = module.networking.private_subnet_ids
+  lambda_security_group_id = module.networking.lambda_security_group_id
+
+  # Endpoints are empty on first apply.
+  # After database module creates RDS, re-apply updates the secret.
+  # The lifecycle ignore_changes on the secret version prevents
+  # Terraform from thrashing the secret after rotation occurs.
+  rds_endpoint   = module.database.rds_endpoint
+  redis_endpoint = module.database.redis_endpoint
 }
 
 module "storage" {
@@ -104,7 +117,7 @@ module "storage" {
   kms_s3_key_arn         = module.kms.s3_key_arn
   imaging_lifecycle_days = 90
   log_retention_days     = 365
-  enable_replication     = true
+  enable_replication     = true   # Cross-region replication on in prod
   replication_region     = "us-west-2"
 }
 
@@ -120,14 +133,16 @@ module "database" {
   redis_security_group_id = module.networking.redis_security_group_id
   kms_rds_key_arn         = module.kms.rds_key_arn
   db_username             = var.db_username
-  db_password             = var.db_password
   db_name                 = var.db_name
   db_instance_class       = var.db_instance_class
   redis_node_type         = var.redis_node_type
-  redis_password          = var.redis_password
-  backup_retention_period = 35
-  multi_az                = true
-  deletion_protection     = true
+  backup_retention_period = 35   # Max retention in prod
+  multi_az                = true # Always on in prod
+  deletion_protection     = true # Prevents accidental destroy in prod
+
+  # Password comes from secrets module — single source of truth.
+  db_password    = module.secrets.db_password
+  redis_password = module.secrets.redis_auth_token
 }
 
 module "notifications" {
@@ -166,7 +181,7 @@ module "compute" {
   app_desired_count            = var.app_desired_count
   app_min_count                = var.app_min_count
   app_max_count                = var.app_max_count
-  certificate_arn              = var.certificate_arn
+  certificate_arn              = data.aws_acm_certificate.main.arn
   rds_endpoint                 = module.database.rds_endpoint
   redis_endpoint               = module.database.redis_endpoint
 }

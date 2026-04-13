@@ -144,7 +144,7 @@ resource "aws_route_table_association" "isolated" {
 
 resource "aws_security_group" "alb" {
   name        = "${local.name_prefix}-alb-sg"
-  description = "Security group for Application Load Balancer — HTTPS inbound only"
+  description = "Security group for Application Load Balancer - HTTPS inbound only"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -171,7 +171,7 @@ resource "aws_security_group" "alb" {
 
 resource "aws_security_group" "ecs" {
   name        = "${local.name_prefix}-ecs-sg"
-  description = "Security group for ECS Fargate tasks — inbound from ALB only"
+  description = "Security group for ECS Fargate tasks - inbound from ALB only"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -198,7 +198,7 @@ resource "aws_security_group" "ecs" {
 
 resource "aws_security_group" "rds" {
   name        = "${local.name_prefix}-rds-sg"
-  description = "Security group for RDS PostgreSQL — inbound from ECS only"
+  description = "Security group for RDS PostgreSQL - inbound from ECS only"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -225,7 +225,7 @@ resource "aws_security_group" "rds" {
 
 resource "aws_security_group" "redis" {
   name        = "${local.name_prefix}-redis-sg"
-  description = "Security group for ElastiCache Redis — inbound from ECS only"
+  description = "Security group for ElastiCache Redis - inbound from ECS only"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -247,6 +247,69 @@ resource "aws_security_group" "redis" {
   tags = {
     Name        = "${local.name_prefix}-redis-sg"
     Environment = var.environment
+  }
+}
+
+resource "aws_cloudwatch_log_group" "flow_log" {
+  name              = "/aws/vpc/${local.name_prefix}/flow-logs"
+  retention_in_days = 90
+
+  tags = {
+    Name        = "${local.name_prefix}-flow-log-group"
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_role" "flow_log" {
+  name = "${local.name_prefix}-flow-log-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "vpc-flow-logs.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = {
+    Name        = "${local.name_prefix}-flow-log-role"
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_role_policy" "flow_log" {
+  name = "${local.name_prefix}-flow-log-policy"
+  role = aws_iam_role.flow_log.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams"
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
+resource "aws_security_group" "lambda_sg" {
+  name        = "${var.project_name}-lambda-sg"
+  description = "Security group for Lambda"
+  vpc_id      = aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 

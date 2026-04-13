@@ -48,6 +48,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "imaging" {
   rule {
     id     = "imaging-lifecycle"
     status = "Enabled"
+    filter {}
 
     transition {
       days          = var.imaging_lifecycle_days
@@ -123,6 +124,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "documents" {
   rule {
     id     = "documents-lifecycle"
     status = "Enabled"
+    filter {}
 
     transition {
       days          = 180
@@ -189,6 +191,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "audit_logs" {
   rule {
     id     = "audit-retention"
     status = "Enabled"
+    filter {}
 
     transition {
       days          = 90

@@ -1,48 +1,63 @@
+# modules/secrets/variables.tf
+
 variable "environment" {
-  description = "Deployment environment (dev, staging, prod)"
   type        = string
+  description = "Deployment environment (dev, staging, prod)"
 }
 
 variable "project_name" {
-  description = "Project name used for resource naming and tagging"
   type        = string
+  description = "Project name used as a resource prefix"
 }
 
 variable "aws_region" {
-  description = "AWS region where secrets will be created"
   type        = string
+  description = "AWS region"
 }
 
 variable "kms_key_arn" {
-  description = "ARN of the KMS key used to encrypt secrets"
   type        = string
+  description = "KMS key ARN used to encrypt secrets"
 }
 
 variable "db_username" {
-  description = "Master username for RDS — injected from Terraform Cloud"
   type        = string
-  sensitive   = true
-}
-
-variable "db_password" {
-  description = "Master password for RDS — injected from Terraform Cloud"
-  type        = string
-  sensitive   = true
+  description = "PostgreSQL master username"
 }
 
 variable "db_name" {
-  description = "Name of the application database"
   type        = string
+  description = "PostgreSQL database name"
 }
 
-variable "redis_password" {
-  description = "Redis auth token — injected from Terraform Cloud"
+# Endpoints are passed in from the database module output.
+# They can be empty strings on first apply - the lifecycle
+# ignore_changes on the secret version handles this gracefully.
+variable "rds_endpoint" {
   type        = string
-  sensitive   = true
+  description = "RDS instance endpoint (host only, no port)"
+  default     = ""
+}
+
+variable "redis_endpoint" {
+  type        = string
+  description = "ElastiCache Redis primary endpoint"
+  default     = ""
 }
 
 variable "recovery_window_in_days" {
-  description = "Days before deleted secret is permanently removed"
   type        = number
+  description = "Days before a deleted secret is permanently removed"
   default     = 30
+}
+
+# VPC variables required by the rotation Lambda
+variable "private_subnet_ids" {
+  type        = list(string)
+  description = "Private subnet IDs for the rotation Lambda VPC config"
+}
+
+variable "lambda_security_group_id" {
+  type        = string
+  description = "Security group ID that allows the rotation Lambda to reach RDS"
 }

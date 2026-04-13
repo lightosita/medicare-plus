@@ -56,7 +56,7 @@ resource "aws_lb_listener" "https" {
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = data.aws_acm_certificate.main.arn
+  certificate_arn   = var.certificate_arn
 
   default_action {
     type             = "forward"
@@ -200,6 +200,9 @@ resource "aws_ecs_service" "app" {
   desired_count   = var.app_desired_count
   launch_type     = "FARGATE"
 
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
+
   network_configuration {
     subnets          = var.private_subnet_ids
     security_groups  = [var.ecs_security_group_id]
@@ -212,17 +215,12 @@ resource "aws_ecs_service" "app" {
     container_port   = 8080
   }
 
-  deployment_configuration {
-    minimum_healthy_percent = 100
-    maximum_percent         = 200
-  }
-
   deployment_circuit_breaker {
     enable   = true
     rollback = true
   }
 
-  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
+  depends_on = [aws_lb_listener.http]
 
   tags = {
     Name        = "${local.name_prefix}-app-service"
