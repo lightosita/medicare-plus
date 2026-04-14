@@ -18,12 +18,11 @@ terraform {
     }
   }
 
-  backend "s3" {
-    bucket       = "light-teleios-s3-medicare-state-221693237976-us-east-1-an"
-    key          = "dev/terraform.tfstate"
-    region       = "us-east-1"
-    encrypt      = true
-    use_lockfile = true
+  cloud {
+    organization = "Teleios"
+    workspaces {
+      name = "teleios-light-dev"
+    }
   }
 }
 
